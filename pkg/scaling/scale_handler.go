@@ -47,7 +47,7 @@ type ScaleHandler interface {
 	HandleScalableObject(scalableObject interface{}) error
 	DeleteScalableObject(scalableObject interface{}) error
 	GetScalersCache(scalableObject interface{}) (*cache.ScalersCache, error)
-	ClearScalersCache(name, namespace, kind string)
+	ClearScalersCache(name, namespace string)
 }
 
 type scaleHandler struct {
@@ -151,7 +151,7 @@ func (h *scaleHandler) startScaleLoop(ctx context.Context, withTriggers *kedav1a
 			tmr.Stop()
 		case <-ctx.Done():
 			logger.V(1).Info("Context canceled")
-			h.ClearScalersCache(withTriggers.Name, withTriggers.Namespace, withTriggers.Kind)
+			h.ClearScalersCache(withTriggers.Name, withTriggers.Namespace)
 			tmr.Stop()
 			return
 		}
@@ -198,11 +198,11 @@ func (h *scaleHandler) GetScalersCache(scalableObject interface{}) (*cache.Scale
 	return h.scalerCaches[key], nil
 }
 
-func (h *scaleHandler) ClearScalersCache(name, namespace, kind string) {
+func (h *scaleHandler) ClearScalersCache(name, namespace string) {
 	h.lock.Lock()
 	defer h.lock.Unlock()
 
-	key := strings.ToLower(fmt.Sprintf("%s.%s.%s", kind, name, namespace))
+	key := strings.ToLower(fmt.Sprintf("%s.%s", name, namespace))
 	if cache, ok := h.scalerCaches[key]; ok {
 		cache.Close()
 		delete(h.scalerCaches, key)

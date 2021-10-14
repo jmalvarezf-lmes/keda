@@ -32,7 +32,7 @@ type MetricsScaledObjectReconciler struct {
 }
 
 func (r *MetricsScaledObjectReconciler) Reconcile(_ context.Context, req ctrl.Request) (ctrl.Result, error) {
-	r.ScaleHandler.ClearScalersCache(req.Name, req.Namespace, "ScaledObject")
+	r.ScaleHandler.ClearScalersCache(req.Name, req.Namespace)
 	return ctrl.Result{}, nil
 }
 
@@ -40,23 +40,6 @@ func (r *MetricsScaledObjectReconciler) SetupWithManager(mgr ctrl.Manager, optio
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&kedav1alpha1.ScaledObject{}, builder.WithPredicates(predicate.GenerationChangedPredicate{})).
 		Owns(&kedav1alpha1.ScaledObject{}).
-		WithOptions(options).
-		Complete(r)
-}
-
-type MetricsScaledJobReconciler struct {
-	ScaleHandler scaling.ScaleHandler
-}
-
-func (r *MetricsScaledJobReconciler) Reconcile(_ context.Context, req ctrl.Request) (ctrl.Result, error) {
-	r.ScaleHandler.ClearScalersCache(req.Name, req.Namespace, "ScaledJob")
-	return ctrl.Result{}, nil
-}
-
-func (r *MetricsScaledJobReconciler) SetupWithManager(mgr ctrl.Manager, options controller.Options) error {
-	return ctrl.NewControllerManagedBy(mgr).
-		For(&kedav1alpha1.ScaledJob{}, builder.WithPredicates(predicate.GenerationChangedPredicate{})).
-		Owns(&kedav1alpha1.ScaledJob{}).
 		WithOptions(options).
 		Complete(r)
 }

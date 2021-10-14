@@ -25,8 +25,6 @@ import (
 	"strconv"
 	"time"
 
-	kedacontrollers "github.com/kedacore/keda/v2/controllers/keda"
-	"sigs.k8s.io/controller-runtime/pkg/controller"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	k8sruntime "k8s.io/apimachinery/pkg/runtime"
@@ -40,12 +38,14 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
+	"sigs.k8s.io/controller-runtime/pkg/controller"
 
 	basecmd "sigs.k8s.io/custom-metrics-apiserver/pkg/cmd"
 	"sigs.k8s.io/custom-metrics-apiserver/pkg/provider"
 
 	generatedopenapi "github.com/kedacore/keda/v2/adapter/generated/openapi"
 	kedav1alpha1 "github.com/kedacore/keda/v2/apis/keda/v1alpha1"
+	kedacontrollers "github.com/kedacore/keda/v2/controllers/keda"
 	prommetrics "github.com/kedacore/keda/v2/pkg/metrics"
 	kedaprovider "github.com/kedacore/keda/v2/pkg/provider"
 	"github.com/kedacore/keda/v2/pkg/scaling"
@@ -129,14 +129,6 @@ func runScaledObjectController(scheme *k8sruntime.Scheme, namespace string, scal
 	}
 
 	if err := (&kedacontrollers.MetricsScaledObjectReconciler{
-		ScaleHandler: scaleHandler,
-	}).SetupWithManager(mgr, controller.Options{
-		MaxConcurrentReconciles: 10,
-	}); err != nil {
-		return err
-	}
-
-	if err := (&kedacontrollers.MetricsScaledJobReconciler{
 		ScaleHandler: scaleHandler,
 	}).SetupWithManager(mgr, controller.Options{
 		MaxConcurrentReconciles: 10,

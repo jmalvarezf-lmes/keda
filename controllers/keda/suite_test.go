@@ -48,7 +48,6 @@ var ctx context.Context
 var cancel context.CancelFunc
 
 func TestAPIs(t *testing.T) {
-	t.SkipNow()
 	RegisterFailHandler(Fail)
 
 	RunSpecsWithDefaultAndCustomReporters(t,

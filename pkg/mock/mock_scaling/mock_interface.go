@@ -66,9 +66,9 @@ func (m *MockScaleHandler) GetScalersCache(scalableObject interface{}) (*cache.S
 	return ret0, ret1
 }
 
-func (m *MockScaleHandler) ClearScalersCache(name, namespace, kind string) {
+func (m *MockScaleHandler) ClearScalersCache(name, namespace string) {
 	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "ClearScalersCache", name, namespace, kind)
+	m.ctrl.Call(m, "ClearScalersCache", name, namespace)
 }
 
 // GetScalers indicates an expected call of GetScalers.
