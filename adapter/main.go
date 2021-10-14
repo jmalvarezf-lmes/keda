@@ -129,7 +129,7 @@ func runScaledObjectController(scheme *k8sruntime.Scheme, namespace string, scal
 		return err
 	}
 
-	if err = (&kedacontrollers.MetricsScaledObjectReconciler{
+	if err := (&kedacontrollers.MetricsScaledObjectReconciler{
 		ScaleHandler: scaleHandler,
 	}).SetupWithManager(mgr, controller.Options{
 		MaxConcurrentReconciles: 10,
