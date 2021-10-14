@@ -342,8 +342,8 @@ func getTargetAverageValue(metricSpecs []v2beta2.MetricSpec) int64 {
 
 func divideWithCeil(x, y int64) int64 {
 	ans := x / y
-	reminder := x % y
-	if reminder != 0 {
+	remainder := x % y
+	if remainder != 0 {
 		return ans + 1
 	}
 	return ans
