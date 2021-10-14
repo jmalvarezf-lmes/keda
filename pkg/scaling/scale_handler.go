@@ -23,8 +23,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/kedacore/keda/v2/pkg/scaling/cache"
-
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -37,6 +35,7 @@ import (
 	kedav1alpha1 "github.com/kedacore/keda/v2/apis/keda/v1alpha1"
 	"github.com/kedacore/keda/v2/pkg/eventreason"
 	"github.com/kedacore/keda/v2/pkg/scalers"
+	"github.com/kedacore/keda/v2/pkg/scaling/cache"
 	"github.com/kedacore/keda/v2/pkg/scaling/executor"
 	"github.com/kedacore/keda/v2/pkg/scaling/resolver"
 )
