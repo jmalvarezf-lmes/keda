@@ -112,8 +112,7 @@ func (a *Adapter) makeProvider(globalHTTPTimeout time.Duration) (provider.Metric
 
 	prometheusServer := &prommetrics.PrometheusMetricServer{}
 	go func() { prometheusServer.NewServer(fmt.Sprintf(":%v", prometheusMetricsPort), prometheusMetricsPath) }()
-	err = runScaledObjectController(scheme, namespace, handler)
-	if err != nil {
+	if err := runScaledObjectController(scheme, namespace, handler); err != nil {
 		return nil, err
 	}
 
