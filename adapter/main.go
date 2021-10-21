@@ -25,10 +25,10 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/go-logr/logr"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	k8sruntime "k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/util/wait"
 	openapinamer "k8s.io/apiserver/pkg/endpoints/openapi"
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -69,7 +69,7 @@ var (
 	adapterClientRequestBurst int
 )
 
-func (a *Adapter) makeProvider(globalHTTPTimeout time.Duration) (provider.MetricsProvider, error) {
+func (a *Adapter) makeProvider(globalHTTPTimeout time.Duration) (provider.MetricsProvider, <-chan struct{}, error) {
 	// Get a config to talk to the apiserver
 	cfg, err := config.GetConfig()
 	if cfg != nil {
@@ -79,17 +79,17 @@ func (a *Adapter) makeProvider(globalHTTPTimeout time.Duration) (provider.Metric
 
 	if err != nil {
 		logger.Error(err, "failed to get the config")
-		return nil, fmt.Errorf("failed to get the config (%s)", err)
+		return nil, nil, fmt.Errorf("failed to get the config (%s)", err)
 	}
 
 	scheme := scheme.Scheme
 	if err := appsv1.SchemeBuilder.AddToScheme(scheme); err != nil {
 		logger.Error(err, "failed to add apps/v1 scheme to runtime scheme")
-		return nil, fmt.Errorf("failed to add apps/v1 scheme to runtime scheme (%s)", err)
+		return nil, nil, fmt.Errorf("failed to add apps/v1 scheme to runtime scheme (%s)", err)
 	}
 	if err := kedav1alpha1.SchemeBuilder.AddToScheme(scheme); err != nil {
 		logger.Error(err, "failed to add keda scheme to runtime scheme")
-		return nil, fmt.Errorf("failed to add keda scheme to runtime scheme (%s)", err)
+		return nil, nil, fmt.Errorf("failed to add keda scheme to runtime scheme (%s)", err)
 	}
 
 	kubeclient, err := client.New(cfg, client.Options{
@@ -97,7 +97,7 @@ func (a *Adapter) makeProvider(globalHTTPTimeout time.Duration) (provider.Metric
 	})
 	if err != nil {
 		logger.Error(err, "unable to construct new client")
-		return nil, fmt.Errorf("unable to construct new client (%s)", err)
+		return nil, nil, fmt.Errorf("unable to construct new client (%s)", err)
 	}
 
 	broadcaster := record.NewBroadcaster()
@@ -107,19 +107,20 @@ func (a *Adapter) makeProvider(globalHTTPTimeout time.Duration) (provider.Metric
 	namespace, err := getWatchNamespace()
 	if err != nil {
 		logger.Error(err, "failed to get watch namespace")
-		return nil, fmt.Errorf("failed to get watch namespace (%s)", err)
+		return nil, nil, fmt.Errorf("failed to get watch namespace (%s)", err)
 	}
 
 	prometheusServer := &prommetrics.PrometheusMetricServer{}
 	go func() { prometheusServer.NewServer(fmt.Sprintf(":%v", prometheusMetricsPort), prometheusMetricsPath) }()
-	if err := runScaledObjectController(scheme, namespace, handler); err != nil {
-		return nil, err
+	stopCh := make(chan struct{})
+	if err := runScaledObjectController(scheme, namespace, handler, logger, stopCh); err != nil {
+		return nil, nil, err
 	}
 
-	return kedaprovider.NewProvider(logger, handler, kubeclient, namespace), nil
+	return kedaprovider.NewProvider(logger, handler, kubeclient, namespace), stopCh, nil
 }
 
-func runScaledObjectController(scheme *k8sruntime.Scheme, namespace string, scaleHandler scaling.ScaleHandler) error {
+func runScaledObjectController(scheme *k8sruntime.Scheme, namespace string, scaleHandler scaling.ScaleHandler, logger logr.Logger, stopCh chan<- struct{}) error {
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
 		Scheme:    scheme,
 		Namespace: namespace,
@@ -136,7 +137,9 @@ func runScaledObjectController(scheme *k8sruntime.Scheme, namespace string, scal
 
 	go func() {
 		if err := mgr.Start(context.Background()); err != nil {
-			panic(err)
+			logger.Error(err, "controller-runtime encountered an error")
+			stopCh <- struct{}{}
+			close(stopCh)
 		}
 	}()
 
@@ -202,7 +205,7 @@ func main() {
 		return
 	}
 
-	kedaProvider, err := cmd.makeProvider(time.Duration(globalHTTPTimeoutMS) * time.Millisecond)
+	kedaProvider, stopCh, err := cmd.makeProvider(time.Duration(globalHTTPTimeoutMS) * time.Millisecond)
 	if err != nil {
 		logger.Error(err, "making provider")
 		return
@@ -210,7 +213,7 @@ func main() {
 	cmd.WithExternalMetrics(kedaProvider)
 
 	logger.Info(cmd.Message)
-	if err = cmd.Run(wait.NeverStop); err != nil {
+	if err = cmd.Run(stopCh); err != nil {
 		return
 	}
 }
