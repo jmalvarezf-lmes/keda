@@ -56,8 +56,10 @@ func TestCheckScaledObjectScalersWithError(t *testing.T) {
 	}
 
 	cache, err := cache.NewScalerCache(
-		[]scalers.Scaler{scaler},
-		[]func() (scalers.Scaler, error){factory},
+		[]cache.ScalerBuilder{{
+			Scaler: scaler,
+			Factory: factory,
+		}},
 		logf.Log.WithName("scalehandler"),
 		recorder)
 	assert.Nil(t, err)
@@ -91,10 +93,15 @@ func TestCheckScaledObjectFindFirstActiveIgnoringOthers(t *testing.T) {
 	factory := func() (scalers.Scaler, error) {
 		return mock_scalers.NewMockScaler(ctrl), nil
 	}
-	factories := []func() (scalers.Scaler, error){factory, factory}
-	scalers := []scalers.Scaler{activeScaler, failingScaler}
+	scalers := []cache.ScalerBuilder{{
+		Scaler: activeScaler,
+		Factory: factory,
+	}, {
+		Scaler: failingScaler,
+		Factory: factory,
+	}}
 
-	scalersCache, err := cache.NewScalerCache(scalers, factories, logf.Log.WithName("scalercache"), recorder)
+	scalersCache, err := cache.NewScalerCache(scalers, logf.Log.WithName("scalercache"), recorder)
 	assert.Nil(t, err)
 
 	isActive, isError, _ := scalersCache.IsScaledObjectActive(context.TODO(), scaledObject)

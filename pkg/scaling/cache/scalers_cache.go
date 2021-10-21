@@ -33,38 +33,28 @@ import (
 )
 
 type ScalersCache struct {
-	scalers  []scalerBuilder
+	scalers  []ScalerBuilder
 	logger   logr.Logger
 	recorder record.EventRecorder
 }
 
-func NewScalerCache(scalers []scalers.Scaler, factories []func() (scalers.Scaler, error), logger logr.Logger, recorder record.EventRecorder) (*ScalersCache, error) {
-	if len(scalers) != len(factories) {
-		return nil, fmt.Errorf("scalers and factories must match")
-	}
-	builders := make([]scalerBuilder, 0, len(scalers))
-	for i := range scalers {
-		builders = append(builders, scalerBuilder{
-			scaler:  scalers[i],
-			factory: factories[i],
-		})
-	}
+func NewScalerCache(scalers []ScalerBuilder, logger logr.Logger, recorder record.EventRecorder) (*ScalersCache, error) {
 	return &ScalersCache{
-		scalers:  builders,
+		scalers:  scalers,
 		logger:   logger,
 		recorder: recorder,
 	}, nil
 }
 
-type scalerBuilder struct {
-	scaler  scalers.Scaler
-	factory func() (scalers.Scaler, error)
+type ScalerBuilder struct {
+	Scaler  scalers.Scaler
+	Factory func() (scalers.Scaler, error)
 }
 
 func (c *ScalersCache) GetScalers() []scalers.Scaler {
 	result := make([]scalers.Scaler, 0, len(c.scalers))
 	for _, s := range c.scalers {
-		result = append(result, s.scaler)
+		result = append(result, s.Scaler)
 	}
 	return result
 }
@@ -72,7 +62,7 @@ func (c *ScalersCache) GetScalers() []scalers.Scaler {
 func (c *ScalersCache) GetPushScalers() []scalers.PushScaler {
 	var result []scalers.PushScaler
 	for _, s := range c.scalers {
-		if ps, ok := s.scaler.(scalers.PushScaler); ok {
+		if ps, ok := s.Scaler.(scalers.PushScaler); ok {
 			result = append(result, ps)
 		}
 	}
@@ -83,7 +73,7 @@ func (c *ScalersCache) GetMetricsForScaler(ctx context.Context, id int, metricNa
 	if id < 0 || id >= len(c.scalers) {
 		return nil, fmt.Errorf("scaler with id %d not found. Len = %d", id, len(c.scalers))
 	}
-	m, err := c.scalers[id].scaler.GetMetrics(ctx, metricName, metricSelector)
+	m, err := c.scalers[id].Scaler.GetMetrics(ctx, metricName, metricSelector)
 	if err == nil {
 		return m, nil
 	}
@@ -100,7 +90,7 @@ func (c *ScalersCache) IsScaledObjectActive(ctx context.Context, scaledObject *k
 	isActive := false
 	isError := false
 	for i, s := range c.scalers {
-		isTriggerActive, err := s.scaler.IsActive(ctx)
+		isTriggerActive, err := s.Scaler.IsActive(ctx)
 		if err != nil {
 			var ns scalers.Scaler
 			ns, err = c.refreshScaler(i)
@@ -115,10 +105,10 @@ func (c *ScalersCache) IsScaledObjectActive(ctx context.Context, scaledObject *k
 			c.recorder.Event(scaledObject, corev1.EventTypeWarning, eventreason.KEDAScalerFailed, err.Error())
 		} else if isTriggerActive {
 			isActive = true
-			if externalMetricsSpec := s.scaler.GetMetricSpecForScaling()[0].External; externalMetricsSpec != nil {
+			if externalMetricsSpec := s.Scaler.GetMetricSpecForScaling()[0].External; externalMetricsSpec != nil {
 				c.logger.V(1).Info("Scaler for scaledObject is active", "Metrics Name", externalMetricsSpec.Metric.Name)
 			}
-			if resourceMetricsSpec := s.scaler.GetMetricSpecForScaling()[0].Resource; resourceMetricsSpec != nil {
+			if resourceMetricsSpec := s.Scaler.GetMetricSpecForScaling()[0].Resource; resourceMetricsSpec != nil {
 				c.logger.V(1).Info("Scaler for scaledObject is active", "Metrics Name", resourceMetricsSpec.Name)
 			}
 			break
@@ -186,7 +176,7 @@ func (c *ScalersCache) IsScaledJobActive(ctx context.Context, scaledJob *kedav1a
 func (c *ScalersCache) GetMetrics(ctx context.Context, metricName string, metricSelector labels.Selector) ([]external_metrics.ExternalMetricValue, error) {
 	var metrics []external_metrics.ExternalMetricValue
 	for i, s := range c.scalers {
-		m, err := s.scaler.GetMetrics(ctx, metricName, metricSelector)
+		m, err := s.Scaler.GetMetrics(ctx, metricName, metricSelector)
 		if err != nil {
 			ns, err := c.refreshScaler(i)
 			if err != nil {
@@ -209,16 +199,16 @@ func (c *ScalersCache) refreshScaler(id int) (scalers.Scaler, error) {
 	}
 
 	sb := c.scalers[id]
-	ns, err := sb.factory()
+	ns, err := sb.Factory()
 	if err != nil {
 		return nil, err
 	}
 
-	c.scalers[id] = scalerBuilder{
-		scaler:  ns,
-		factory: sb.factory,
+	c.scalers[id] = ScalerBuilder{
+		Scaler:  ns,
+		Factory: sb.Factory,
 	}
-	sb.scaler.Close()
+	sb.Scaler.Close()
 
 	return ns, nil
 }
@@ -226,7 +216,7 @@ func (c *ScalersCache) refreshScaler(id int) (scalers.Scaler, error) {
 func (c *ScalersCache) GetMetricSpecForScaling() []v2beta2.MetricSpec {
 	var spec []v2beta2.MetricSpec
 	for _, s := range c.scalers {
-		spec = append(spec, s.scaler.GetMetricSpecForScaling()...)
+		spec = append(spec, s.Scaler.GetMetricSpecForScaling()...)
 	}
 	return spec
 }
@@ -235,7 +225,7 @@ func (c *ScalersCache) Close() {
 	scalers := c.scalers
 	c.scalers = nil
 	for _, s := range scalers {
-		err := s.scaler.Close()
+		err := s.Scaler.Close()
 		if err != nil {
 			c.logger.Error(err, "error closing scaler", "scaler", s)
 		}
@@ -259,7 +249,7 @@ func (c *ScalersCache) getScaledJobMetrics(ctx context.Context, scaledJob *kedav
 
 		scalerLogger := c.logger.WithValues("ScaledJob", scaledJob.Name, "Scaler", scalerType)
 
-		metricSpecs := s.scaler.GetMetricSpecForScaling()
+		metricSpecs := s.Scaler.GetMetricSpecForScaling()
 
 		// skip scaler that doesn't return any metric specs (usually External scaler with incorrect metadata)
 		// or skip cpu/memory resource scaler
@@ -267,7 +257,7 @@ func (c *ScalersCache) getScaledJobMetrics(ctx context.Context, scaledJob *kedav
 			continue
 		}
 
-		isTriggerActive, err := s.scaler.IsActive(ctx)
+		isTriggerActive, err := s.Scaler.IsActive(ctx)
 		if err != nil {
 			if ns, err := c.refreshScaler(i); err == nil {
 				isTriggerActive, err = ns.IsActive(ctx)
@@ -282,7 +272,7 @@ func (c *ScalersCache) getScaledJobMetrics(ctx context.Context, scaledJob *kedav
 
 		targetAverageValue = getTargetAverageValue(metricSpecs)
 
-		metrics, err := s.scaler.GetMetrics(ctx, "queueLength", nil)
+		metrics, err := s.Scaler.GetMetrics(ctx, "queueLength", nil)
 		if err != nil {
 			scalerLogger.V(1).Info("Error getting scaler metrics, but continue", "Error", err)
 			c.recorder.Event(scaledJob, corev1.EventTypeWarning, eventreason.KEDAScalerFailed, err.Error())
