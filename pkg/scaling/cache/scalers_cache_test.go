@@ -70,7 +70,7 @@ func TestIsScaledJobActive(t *testing.T) {
 	scalerSingle := []scalers.Scaler{
 		createScaler(ctrl, int64(20), int32(2), true),
 	}
-	factories := []func() (scalers.Scaler, error){func() (scalers.Scaler, error) {
+	factories := []func() (scalers.Scaler, error){ func() (scalers.Scaler, error) {
 		return createScaler(ctrl, int64(20), int32(2), true), nil
 	}}
 
@@ -111,7 +111,7 @@ func TestIsScaledJobActive(t *testing.T) {
 
 	for index, scalerTestData := range scalerTestDatam {
 		scaledJob := createScaledObject(scalerTestData.MaxReplicaCount, scalerTestData.MultipleScalersCalculation)
-		_scalers := []scalers.Scaler{
+		scalersToTest := []scalers.Scaler{
 			createScaler(ctrl, scalerTestData.Scaler1QueueLength, scalerTestData.Scaler1AverageValue, scalerTestData.Scaler1IsActive),
 			createScaler(ctrl, scalerTestData.Scaler2QueueLength, scalerTestData.Scaler2AverageValue, scalerTestData.Scaler2IsActive),
 			createScaler(ctrl, scalerTestData.Scaler3QueueLength, scalerTestData.Scaler3AverageValue, scalerTestData.Scaler3IsActive),
@@ -131,7 +131,7 @@ func TestIsScaledJobActive(t *testing.T) {
 				return createScaler(ctrl, scalerTestData.Scaler4QueueLength, scalerTestData.Scaler4AverageValue, scalerTestData.Scaler4IsActive), nil
 			},
 		}
-		cache, err = NewScalerCache(_scalers, factories, logr.DiscardLogger{}, recorder)
+		cache, err = NewScalerCache(scalersToTest, factories, logr.DiscardLogger{}, recorder)
 		assert.Nil(t, err)
 		fmt.Printf("index: %d", index)
 		isActive, queueLength, maxValue = cache.IsScaledJobActive(context.TODO(), scaledJob)
