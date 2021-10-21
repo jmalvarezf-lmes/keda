@@ -70,7 +70,7 @@ func TestIsScaledJobActive(t *testing.T) {
 	scalerSingle := []scalers.Scaler{
 		createScaler(ctrl, int64(20), int32(2), true),
 	}
-	factories := []func() (scalers.Scaler, error){ func() (scalers.Scaler, error) {
+	factories := []func() (scalers.Scaler, error){func() (scalers.Scaler, error) {
 		return createScaler(ctrl, int64(20), int32(2), true), nil
 	}}
 
