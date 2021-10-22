@@ -259,7 +259,9 @@ func (c *ScalersCache) getScaledJobMetrics(ctx context.Context, scaledJob *kedav
 
 		isTriggerActive, err := s.Scaler.IsActive(ctx)
 		if err != nil {
-			if ns, err := c.refreshScaler(i); err == nil {
+			var ns scalers.Scaler
+			ns, err = c.refreshScaler(i)
+			if err == nil {
 				isTriggerActive, err = ns.IsActive(ctx)
 			}
 		}
